@@ -32,14 +32,15 @@ class UpQuark:
     def __init__(self,position):
         self.charge = UP_TYPE_QUARK_CHARGE
         self.mass   = UP_TYPE_QUARK_MASS
-        self.visual = sphere(pos=vector(0, 1 + -1/3, 0), radius=1/3, color=color.red)
+        self.visual = sphere(pos=position, radius=1/3, color=color.red)
 class DownQuark:
     def __init__(self,position):
         self.charge = DOWN_TYPE_QUARK_CHARGE
         self.mass   = DOWN_TYPE_QUARK_MASS
-        self.visual = sphere(pos=vector(0,-1 + 1/3, 0), radius=1/3, color=color.blue)
+        self.visual = sphere(pos=position, radius=1/3, color=color.blue)
 
 
 ##Setup##
 
 ProtonSphere = sphere(pos=vector(0, 0, 0), radius=1, color=color.white, opacity=0.5)
+q1 = UpQuark(vector(0,0,0))
