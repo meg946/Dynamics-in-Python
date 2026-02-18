@@ -59,14 +59,57 @@ class DownQuark:
         )
 
 
+class Proton:
+    def __init__(self, position):
+        self.pos = position
+        self.radius = PROTON_RADIUS
+
+        self.visual = sphere(pos=self.pos, radius=self.radius, color=color.red, opacity=0.3)
+
+        offset_1 = vector(QUARK_VERTEX, QUARK_VERTEX, QUARK_VERTEX) * qSqrt3
+        offset_2 = vector(QUARK_VERTEX, -QUARK_VERTEX, -QUARK_VERTEX) * qSqrt3
+        offset_3 = vector(-QUARK_VERTEX, QUARK_VERTEX, -QUARK_VERTEX) * qSqrt3
+
+        self.quarks = [
+            UpQuark(position=self.pos + offset_1),
+            UpQuark(position=self.pos + offset_2),
+            DownQuark(position=self.pos + offset_3)
+            ]
+    def get_total_charge(self):
+        return sum(q.charge for q in self.quarks)
+
+
+
+class Neutron:
+    def __init__(self, position):
+        self.pos = position
+        self.radius = PROTON_RADIUS
+
+        self.visual = sphere(pos=self.pos, radius=self.radius, color=color.white, opacity=0.3)
+
+        offset_1 = vector(QUARK_VERTEX, QUARK_VERTEX, QUARK_VERTEX) * qSqrt3
+        offset_2 = vector(QUARK_VERTEX, -QUARK_VERTEX, -QUARK_VERTEX) * qSqrt3
+        offset_3 = vector(-QUARK_VERTEX, QUARK_VERTEX, -QUARK_VERTEX) * qSqrt3
+
+        self.quarks = [
+            UpQuark(position=self.pos + offset_1),
+            DownQuark(position=self.pos + offset_2),
+            DownQuark(position=self.pos + offset_3)
+            ]
+    def get_total_charge(self):
+        return sum(q.charge for q in self.quarks)
+    
+
+
 ##Setup##
 
-ProtonSphere = sphere(
-    pos=vector(0, 0, 0), radius=PROTON_RADIUS, color=color.white, opacity=0.5
-)
-q1 = UpQuark(vector(QUARK_VERTEX, QUARK_VERTEX, QUARK_VERTEX) * qSqrt3)
-q2 = UpQuark(vector(QUARK_VERTEX, -QUARK_VERTEX, -QUARK_VERTEX) * qSqrt3)
-q3 = DownQuark(vector(-QUARK_VERTEX, QUARK_VERTEX, -QUARK_VERTEX) * qSqrt3)
+# Canvas
+canvas(width=1200, height=1200, background=color.black)
 
+# Objects
 
-print(q1.charge + q2.charge + q3.charge)
+p1 = Proton(position=vector(0,0,0))
+n1 = Neutron(position=vector(2*fm,0,0))
+
+print(p1.get_total_charge())
+print(n1.get_total_charge())
