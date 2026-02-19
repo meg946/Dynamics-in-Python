@@ -34,6 +34,7 @@ NEUTRON_RADIUS = 0.8 * fm
 UP_TYPE_QUARK_RADIUS = 1e-2 * PROTON_RADIUS
 DOWN_TYPE_QUARK_RADIUS = 1e-2 * PROTON_RADIUS
 QUARK_VERTEX = 2 * UP_TYPE_QUARK_RADIUS
+HADRON_VERTEX = 2 * ((PROTON_RADIUS + NEUTRON_RADIUS) / 2)
 
 # Hadron Charges
 PROTON_CHARGE = UP_TYPE_QUARK_CHARGE * 2 + DOWN_TYPE_QUARK_CHARGE
@@ -143,6 +144,54 @@ class Neutron:
         self.force = vector(0, 0, 0)
 
 
+class Atom:
+    def __init__(self, position):
+        self.pos = position
+        self.radius = 0
+
+        offset_1 = vector(HADRON_VERTEX, HADRON_VERTEX, HADRON_VERTEX) * qSqrt3
+        offset_2 = vector(HADRON_VERTEX, -HADRON_VERTEX, -HADRON_VERTEX) * qSqrt3
+        offset_3 = vector(-HADRON_VERTEX, HADRON_VERTEX, -HADRON_VERTEX) * qSqrt3
+
+        self.neutrons = [
+            Neutron(position=self.pos + offset_1),
+            Neutron(position=self.pos + offset_3),
+        ]
+
+        self.protons = [Proton(position=self.pos + offset_2), Proton(position=self.pos)]
+
+        for p in self.protons:
+            self.radius += p.radius
+        for n in self.neutrons:
+            self.radius += n.radius
+
+        self.vel = vector(0, 0, 0)
+        self.accel = vector(0, 0, 0)
+        self.force = vector(0, 0, 0)
+        self.mass = sum(n.mass for n in self.neutrons) + sum(
+            p.mass for p in self.protons
+        )
+
+        self.visual = sphere(
+            pos=self.pos, radius=self.radius, color=color.white, opacity=0.3
+        )
+
+    def update(self):
+        self.accel = self.force / self.mass
+        self.vel += self.accel * dt
+        displacement = self.vel * dt
+        self.pos += displacement
+        self.visual.pos = self.pos
+
+        for q in self.protons:
+            q.visual.pos += displacement
+
+        self.force = vector(0, 0, 0)
+
+        # for q in self.neutrons:
+        #    q.visual.pos += displacement
+
+
 ##Setup##
 
 # Canvas
@@ -152,10 +201,9 @@ scene.background = color.white
 
 # Objects
 
-p1 = Proton(position=vector(2 * fm, 0, 0))
-n1 = Neutron(position=vector(0, 0, 0))
+a1 = Atom(position=vector(0, 1 * fm, 0))
 
-objectList = [p1, n1]
+objectList = [a1]
 
 while True:
     rate(60)
