@@ -3,35 +3,40 @@ import random
 
 
 ##CONSTANTS##
-    #Unit Conversions
-eVc = 1.7826619216279e-36                                       #eV/c^2 convert to kilogram
-fm = 1e-15                                                      #femtometre to meter
-qSqrt3 = 1/sqrt(3)                                              #just to make it easier
+# Unit Conversions
+eVc = 1.7826619216279e-36  # eV/c^2 convert to kilogram
+fm = 1e-15  # femtometre to meter
+qSqrt3 = 1 / sqrt(3)  # just to make it easier
+dt = 1 / 60  # time step
 
-    #Coulombs Constant
-SPEED_OF_LIGHT = 299792458                                      #Meters per Second
-MAGNETIC_CONSTANT = 1.25663706127e-6                            #Newtons per Ampere
-EPSILON_NAUGHT = 1/(MAGNETIC_CONSTANT * SPEED_OF_LIGHT**2)      #Farad per (1/meter)
-COULOMB_CONSTANT = 1/(4*pi) * (EPSILON_NAUGHT**-1)              #Newtons per (meters^2/Coulomb^2)
 
-    #Elementary Charges
-E = 1.602176634e-19                                             #Coulombs
-UP_TYPE_QUARK_CHARGE = (2/3)*E                                  #Coulombs
-DOWN_TYPE_QUARK_CHARGE = (-1/3)*E                               #Coulombs
+# Coulombs Constant
+SPEED_OF_LIGHT = 299792458  # Meters per Second
+MAGNETIC_CONSTANT = 1.25663706127e-6  # Newtons per Ampere
+EPSILON_NAUGHT = 1 / (MAGNETIC_CONSTANT * SPEED_OF_LIGHT**2)  # Farad per (1/meter)
+COULOMB_CONSTANT = (
+    1 / (4 * pi) * (EPSILON_NAUGHT**-1)
+)  # Newtons per (meters^2/Coulomb^2)
 
-    #Elementary Mass
+# Elementary Charges
+E = 1.602176634e-19  # Coulombs
+UP_TYPE_QUARK_CHARGE = (2 / 3) * E  # Coulombs
+DOWN_TYPE_QUARK_CHARGE = (-1 / 3) * E  # Coulombs
+
+# Elementary Mass
 UP_TYPE_QUARK_MASS = 2.16 * eVc
 DOWN_TYPE_QUARK_MASS = 4.7 * eVc
 ELECTRON_MASS = 0.51099895069 * eVc
 
-    #Elementary Radius
+# Elementary Radius
 PROTON_RADIUS = 0.84075 * fm
 NEUTRON_RADIUS = 0.8 * fm
-UP_TYPE_QUARK_RADIUS = 1e-4 * PROTON_RADIUS
-DOWN_TYPE_QUARK_RADIUS = 1e-4 * PROTON_RADIUS
-QUARK_VERTEX = 2*UP_TYPE_QUARK_RADIUS
+UP_TYPE_QUARK_RADIUS = 1e-2 * PROTON_RADIUS
+DOWN_TYPE_QUARK_RADIUS = 1e-2 * PROTON_RADIUS
+QUARK_VERTEX = 2 * UP_TYPE_QUARK_RADIUS
+HADRON_VERTEX = 2 * ((PROTON_RADIUS + NEUTRON_RADIUS) / 2)
 
-    #Hadron Charges
+# Hadron Charges
 PROTON_CHARGE = UP_TYPE_QUARK_CHARGE * 2 + DOWN_TYPE_QUARK_CHARGE
 NEUTRON_CHARGE = UP_TYPE_QUARK_CHARGE + DOWN_TYPE_QUARK_CHARGE * 2
 ELECTRON_CHARGE = -E
@@ -39,25 +44,230 @@ ELECTRON_CHARGE = -E
 
 ##CLASSES##
 
-    #Elementary Classes
+
+# Elementary Classes
 class UpQuark:
-    def __init__(self,position):
+    def __init__(self, position):
         self.charge = UP_TYPE_QUARK_CHARGE
-        self.mass   = UP_TYPE_QUARK_MASS
+        self.mass = UP_TYPE_QUARK_MASS
+        self.spin = 1 / 2
         self.visual = sphere(pos=position, radius=UP_TYPE_QUARK_RADIUS, color=color.red)
+
+
 class DownQuark:
-    def __init__(self,position):
+    def __init__(self, position):
         self.charge = DOWN_TYPE_QUARK_CHARGE
-        self.mass   = DOWN_TYPE_QUARK_MASS
-        self.visual = sphere(pos=position, radius=DOWN_TYPE_QUARK_RADIUS, color=color.blue)
+        self.mass = DOWN_TYPE_QUARK_MASS
+        self.spin = 1 / 2
+        self.visual = sphere(
+            pos=position, radius=DOWN_TYPE_QUARK_RADIUS, color=color.blue
+        )
+
+
+class Electron:
+    def __init__(self, position):
+        self.charge = ELECTRON_CHARGE
+        self.mass = ELECTRON_MASS
+        self.spin = 1 / 2
+        self.pos = position
+        self.shell = 1
+        self.energy = -13.6/(self.shell**2)         #energy is in electron Volts
+
+        self.visual = sphere(pos=self.pos, radius = UP_TYPE_QUARK_RADIUS*300, color = color.yellow, opacity=0.3)
+
+        self.vel = vector(0, 0, 0)
+        self.accel = vector(0, 0, 0)
+        self.force = vector(0, 0, 0)
+
+    def update(self, parent_displacement=vector(0,0,0)):
+        self.accel = self.force / self.mass
+        self.vel += self.accel * dt
+        displacement = self.vel * dt + parent_displacement
+        self.pos += displacement
+        self.visual.pos = self.pos
+
+        self.force = vector(0, 0, 0)
+
+
+class Proton:
+    def __init__(self, position):
+        self.pos = position
+        self.radius = PROTON_RADIUS
+
+        offset_1 = vector(QUARK_VERTEX, QUARK_VERTEX, QUARK_VERTEX) * qSqrt3
+        offset_2 = vector(QUARK_VERTEX, -QUARK_VERTEX, -QUARK_VERTEX) * qSqrt3
+        offset_3 = vector(-QUARK_VERTEX, QUARK_VERTEX, -QUARK_VERTEX) * qSqrt3
+
+        self.quarks = [
+            UpQuark(position=self.pos + offset_1),
+            UpQuark(position=self.pos + offset_2),
+            DownQuark(position=self.pos + offset_3),
+        ]
+
+        self.vel = vector(0, 0, 0)
+        self.accel = vector(0, 0, 0)
+        self.force = vector(0, 0, 0)
+        self.mass = sum(q.mass for q in self.quarks)
+
+        self.visual = sphere(pos=self.pos, radius=self.radius, color=color.red, opacity=0.3)
+
+    def get_total_charge(self):
+        return sum(q.charge for q in self.quarks)
+
+    def update(self, parent_displacement=vector(0,0,0)):
+        self.accel = self.force / self.mass
+        self.vel += self.accel * dt
+        displacement = self.vel * dt + parent_displacement
+        self.pos += displacement
+        self.visual.pos = self.pos
+
+        for q in self.quarks:
+            q.visual.pos += displacement
+
+        self.force = vector(0, 0, 0)
+
+
+class Neutron:
+    def __init__(self, position):
+        self.pos = position
+        self.radius = PROTON_RADIUS
+
+        offset_1 = vector(QUARK_VERTEX, QUARK_VERTEX, QUARK_VERTEX) * qSqrt3
+        offset_2 = vector(QUARK_VERTEX, -QUARK_VERTEX, -QUARK_VERTEX) * qSqrt3
+        offset_3 = vector(-QUARK_VERTEX, QUARK_VERTEX, -QUARK_VERTEX) * qSqrt3
+
+        self.quarks = [
+            UpQuark(position=self.pos + offset_1),
+            DownQuark(position=self.pos + offset_2),
+            DownQuark(position=self.pos + offset_3),
+        ]
+
+        self.vel = vector(0, 0, 0)
+        self.accel = vector(0, 0, 0)
+        self.force = vector(0, 0, 0)
+        self.mass = sum(q.mass for q in self.quarks)
+
+        self.visual = sphere(pos=self.pos, radius=self.radius, color=color.white, opacity=0.3)
+
+    def get_total_charge(self):
+        return sum(q.charge for q in self.quarks)
+
+    def update(self, parent_displacement=vector(0,0,0)):
+        self.accel = self.force / self.mass
+        self.vel += self.accel * dt
+        displacement = self.vel * dt + parent_displacement
+        self.pos += displacement
+        self.visual.pos = self.pos
+
+        for q in self.quarks:
+            q.visual.pos += displacement
+
+        self.force = vector(0, 0, 0)
+
+
+class Atom:
+    def __init__(self, position, atomic_number=2):
+        self.pos = position
+        self.radius = 0
+
+        self.neutrons = [Neutron(position=self.pos) for _ in range(atomic_number)]
+
+        self.protons = [Proton(position=self.pos) for _ in range(atomic_number)]
+
+        for p in self.protons:
+            self.radius += p.radius
+        for n in self.neutrons:
+            self.radius += n.radius
+
+        offset_1 = vector(HADRON_VERTEX, HADRON_VERTEX, HADRON_VERTEX) * qSqrt3
+        offset_2 = vector(HADRON_VERTEX, -HADRON_VERTEX, -HADRON_VERTEX) * qSqrt3
+        offset_3 = vector(-HADRON_VERTEX, HADRON_VERTEX, -HADRON_VERTEX) * qSqrt3
+        
+        offset_electron_mag = (15 * (1 + self.radius*1e13)**3) * HADRON_VERTEX #shell distance
+        print(self.radius)
+        print(offset_electron_mag)
+
+        self.electrons = []
+
+        #electron shell calculation
+        for i in range(atomic_number):          
+            n = 1
+            electronCapacity = 2 * (n**2)
+            count = i + 1
+
+            while count > electronCapacity:
+                count -= electronCapacity
+                n += 1
+                electronCapacity = 2 * (n**2)
+
+            shell_radius = (n**2) * offset_electron_mag
+
+            theta = random.uniform(0,2 * pi)
+            phi = acos(random.uniform(-1,1))
+
+            offset_x = shell_radius * sin(phi) * cos(theta)
+            offset_y = shell_radius * sin(phi) * sin(theta)
+            offset_z = shell_radius * cos(phi)
+
+            electron_shell_pos = self.pos + vector(offset_x, offset_y, offset_z)
+
+            electron = Electron(position=electron_shell_pos)
+            electron.shell = n
+
+            self.electrons += [electron]
+
+        self.vel = vector(0, 0, 0)
+        self.accel = vector(0, 0, 0)
+        self.force = vector(0, 0, 0)
+        self.mass = sum(n.mass for n in self.neutrons) + sum(p.mass for p in self.protons)
+
+        self.visual = sphere(pos=self.pos, radius=self.radius, color=color.white, opacity=0.3)
+
+    def update(self):
+        self.accel = self.force / self.mass
+        self.vel += self.accel * dt
+        displacement = self.vel * dt
+        self.pos += displacement
+        self.visual.pos = self.pos
+
+        for p in self.protons:
+            p.visual.pos += displacement
+            p.update(displacement)
+
+        for n in self.neutrons:
+            n.visual.pos += displacement
+            n.update(displacement)
+
+        for e in self.electrons:
+            e.visual.pos += displacement
+            e.update(displacement)
+        
+        self.force = vector(0, 0, 0)
 
 
 ##Setup##
 
-ProtonSphere = sphere(pos=vector(0, 0, 0), radius=PROTON_RADIUS, color=color.white, opacity=0.5)
-q1 = UpQuark(vector(QUARK_VERTEX,QUARK_VERTEX,QUARK_VERTEX) * qSqrt3)
-q2 = UpQuark(vector(QUARK_VERTEX,-QUARK_VERTEX,-QUARK_VERTEX) * qSqrt3)
-q3 = DownQuark(vector(-QUARK_VERTEX,QUARK_VERTEX,-QUARK_VERTEX) * qSqrt3)
+# Canvas
+scene.width = 1000
+scene.height = 1100
+scene.background = color.white
+
+# Objects
+
+He = Atom(position=vector(0,0,0),atomic_number=2)
+Li = Atom(position=vector(-5,0,0)*fm, atomic_number=3)
+
+objectList = [He,Li]
 
 
-print(q1.charge+q2.charge+q3.charge)
+
+##UPDATES##
+
+#He.vel += vector(1,0,0)*fm
+
+while True:
+    rate(60)
+    for obj in objectList:
+        obj.update()
+    scene.camera.follow(He.visual)
+
