@@ -64,6 +64,30 @@ class DownQuark:
         )
 
 
+class Electron:
+    def __init__(self, position):
+        self.charge = ELECTRON_CHARGE
+        self.mass = ELECTRON_MASS
+        self.spin = 1 / 2
+        self.pos = position
+        self.shell = 1
+
+        self.visual = sphere(pos=self.pos, radius = UP_TYPE_QUARK_RADIUS*10, color = color.yellow, opacity=0.3)
+
+        self.vel = vector(0, 0, 0)
+        self.accel = vector(0, 0, 0)
+        self.force = vector(0, 0, 0)
+
+    def update(self, parent_displacement=vector(0,0,0)):
+        self.accel = self.force / self.mass
+        self.vel += self.accel * dt
+        displacement = self.vel * dt + parent_displacement
+        self.pos += displacement
+        self.visual.pos = self.pos
+
+        self.force = vector(0, 0, 0)
+
+
 class Proton:
     def __init__(self, position):
         self.pos = position
@@ -84,17 +108,15 @@ class Proton:
         self.force = vector(0, 0, 0)
         self.mass = sum(q.mass for q in self.quarks)
 
-        self.visual = sphere(
-            pos=self.pos, radius=self.radius, color=color.red, opacity=0.3
-        )
+        self.visual = sphere(pos=self.pos, radius=self.radius, color=color.red, opacity=0.3)
 
     def get_total_charge(self):
         return sum(q.charge for q in self.quarks)
 
-    def update(self):
+    def update(self, parent_displacement=vector(0,0,0)):
         self.accel = self.force / self.mass
         self.vel += self.accel * dt
-        displacement = self.vel * dt
+        displacement = self.vel * dt + parent_displacement
         self.pos += displacement
         self.visual.pos = self.pos
 
@@ -124,17 +146,15 @@ class Neutron:
         self.force = vector(0, 0, 0)
         self.mass = sum(q.mass for q in self.quarks)
 
-        self.visual = sphere(
-            pos=self.pos, radius=self.radius, color=color.white, opacity=0.3
-        )
+        self.visual = sphere(pos=self.pos, radius=self.radius, color=color.white, opacity=0.3)
 
     def get_total_charge(self):
         return sum(q.charge for q in self.quarks)
 
-    def update(self):
+    def update(self, parent_displacement=vector(0,0,0)):
         self.accel = self.force / self.mass
         self.vel += self.accel * dt
-        displacement = self.vel * dt
+        displacement = self.vel * dt + parent_displacement
         self.pos += displacement
         self.visual.pos = self.pos
 
@@ -152,13 +172,32 @@ class Atom:
         offset_1 = vector(HADRON_VERTEX, HADRON_VERTEX, HADRON_VERTEX) * qSqrt3
         offset_2 = vector(HADRON_VERTEX, -HADRON_VERTEX, -HADRON_VERTEX) * qSqrt3
         offset_3 = vector(-HADRON_VERTEX, HADRON_VERTEX, -HADRON_VERTEX) * qSqrt3
+        
+        electron_offset = 3 * vector(HADRON_VERTEX,0,0) #shell distance
 
         self.neutrons = [
-            Neutron(position=self.pos + offset_1),
-            Neutron(position=self.pos + offset_3),
+            Neutron(position=self.pos),
+            Neutron(position=self.pos),
         ]
 
-        self.protons = [Proton(position=self.pos + offset_2), Proton(position=self.pos)]
+        self.protons = [
+            Proton(position=self.pos),
+            Proton(position=self.pos),
+            Proton(position=self.pos)
+        ]
+
+        self.electrons = []
+        self.electronCount = 1
+        self.electronSide = 1
+        for _ in self.protons:          
+            self.electrons += [
+                Electron(position=self.pos + electron_offset * self.electronCount * self.electronSide)
+                ]
+            for _ in self.electrons:
+                self.electronCount +=1
+                self.electronSide *= -1
+                
+
 
         for p in self.protons:
             self.radius += p.radius
@@ -168,13 +207,9 @@ class Atom:
         self.vel = vector(0, 0, 0)
         self.accel = vector(0, 0, 0)
         self.force = vector(0, 0, 0)
-        self.mass = sum(n.mass for n in self.neutrons) + sum(
-            p.mass for p in self.protons
-        )
+        self.mass = sum(n.mass for n in self.neutrons) + sum(p.mass for p in self.protons)
 
-        self.visual = sphere(
-            pos=self.pos, radius=self.radius, color=color.white, opacity=0.3
-        )
+        self.visual = sphere(pos=self.pos, radius=self.radius, color=color.white, opacity=0.3)
 
     def update(self):
         self.accel = self.force / self.mass
@@ -183,29 +218,43 @@ class Atom:
         self.pos += displacement
         self.visual.pos = self.pos
 
-        for q in self.protons:
-            q.visual.pos += displacement
+        for p in self.protons:
+            p.visual.pos += displacement
+            p.update(displacement)
 
+        for n in self.neutrons:
+            n.visual.pos += displacement
+            n.update(displacement)
+
+        for e in self.electrons:
+            e.visual.pos += displacement
+            e.update(displacement)
+        
         self.force = vector(0, 0, 0)
 
-        # for q in self.neutrons:
-        #    q.visual.pos += displacement
+        
 
 
 ##Setup##
 
 # Canvas
-scene.width = 1200
-scene.height = 1200
+scene.width = 1000
+scene.height = 1100
 scene.background = color.white
 
 # Objects
 
-a1 = Atom(position=vector(0, 1 * fm, 0))
+He = Atom(position=vector(0, 1 * fm, 0))
 
-objectList = [a1]
+objectList = [He]
+
+
+
+##UPDATES##
 
 while True:
     rate(60)
     for obj in objectList:
         obj.update()
+    scene.camera.follow(He.visual)
+
