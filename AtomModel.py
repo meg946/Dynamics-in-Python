@@ -71,8 +71,9 @@ class Electron:
         self.spin = 1 / 2
         self.pos = position
         self.shell = 1
+        self.energy = -13.6/(self.shell**2)         #energy is in electron Volts
 
-        self.visual = sphere(pos=self.pos, radius = UP_TYPE_QUARK_RADIUS*10, color = color.yellow, opacity=0.3)
+        self.visual = sphere(pos=self.pos, radius = UP_TYPE_QUARK_RADIUS*300, color = color.yellow, opacity=0.3)
 
         self.vel = vector(0, 0, 0)
         self.accel = vector(0, 0, 0)
@@ -165,44 +166,55 @@ class Neutron:
 
 
 class Atom:
-    def __init__(self, position):
+    def __init__(self, position, atomic_number=2):
         self.pos = position
         self.radius = 0
 
-        offset_1 = vector(HADRON_VERTEX, HADRON_VERTEX, HADRON_VERTEX) * qSqrt3
-        offset_2 = vector(HADRON_VERTEX, -HADRON_VERTEX, -HADRON_VERTEX) * qSqrt3
-        offset_3 = vector(-HADRON_VERTEX, HADRON_VERTEX, -HADRON_VERTEX) * qSqrt3
-        
-        electron_offset = 3 * vector(HADRON_VERTEX,0,0) #shell distance
+        self.neutrons = [Neutron(position=self.pos) for _ in range(atomic_number)]
 
-        self.neutrons = [
-            Neutron(position=self.pos),
-            Neutron(position=self.pos),
-        ]
-
-        self.protons = [
-            Proton(position=self.pos),
-            Proton(position=self.pos),
-            Proton(position=self.pos)
-        ]
-
-        self.electrons = []
-        self.electronCount = 1
-        self.electronSide = 1
-        for _ in self.protons:          
-            self.electrons += [
-                Electron(position=self.pos + electron_offset * self.electronCount * self.electronSide)
-                ]
-            for _ in self.electrons:
-                self.electronCount +=1
-                self.electronSide *= -1
-                
-
+        self.protons = [Proton(position=self.pos) for _ in range(atomic_number)]
 
         for p in self.protons:
             self.radius += p.radius
         for n in self.neutrons:
             self.radius += n.radius
+
+        offset_1 = vector(HADRON_VERTEX, HADRON_VERTEX, HADRON_VERTEX) * qSqrt3
+        offset_2 = vector(HADRON_VERTEX, -HADRON_VERTEX, -HADRON_VERTEX) * qSqrt3
+        offset_3 = vector(-HADRON_VERTEX, HADRON_VERTEX, -HADRON_VERTEX) * qSqrt3
+        
+        offset_electron_mag = (15 * (1 + self.radius*1e13)**3) * HADRON_VERTEX #shell distance
+        print(self.radius)
+        print(offset_electron_mag)
+
+        self.electrons = []
+
+        #electron shell calculation
+        for i in range(atomic_number):          
+            n = 1
+            electronCapacity = 2 * (n**2)
+            count = i + 1
+
+            while count > electronCapacity:
+                count -= electronCapacity
+                n += 1
+                electronCapacity = 2 * (n**2)
+
+            shell_radius = (n**2) * offset_electron_mag
+
+            theta = random.uniform(0,2 * pi)
+            phi = acos(random.uniform(-1,1))
+
+            offset_x = shell_radius * sin(phi) * cos(theta)
+            offset_y = shell_radius * sin(phi) * sin(theta)
+            offset_z = shell_radius * cos(phi)
+
+            electron_shell_pos = self.pos + vector(offset_x, offset_y, offset_z)
+
+            electron = Electron(position=electron_shell_pos)
+            electron.shell = n
+
+            self.electrons += [electron]
 
         self.vel = vector(0, 0, 0)
         self.accel = vector(0, 0, 0)
@@ -232,8 +244,6 @@ class Atom:
         
         self.force = vector(0, 0, 0)
 
-        
-
 
 ##Setup##
 
@@ -244,13 +254,16 @@ scene.background = color.white
 
 # Objects
 
-He = Atom(position=vector(0, 1 * fm, 0))
+He = Atom(position=vector(0,0,0),atomic_number=2)
+Li = Atom(position=vector(-5,0,0)*fm, atomic_number=3)
 
-objectList = [He]
+objectList = [He,Li]
 
 
 
 ##UPDATES##
+
+#He.vel += vector(1,0,0)*fm
 
 while True:
     rate(60)
