@@ -1,5 +1,7 @@
 from vpython import *
 import random
+import numpy as np
+
 
 
 ##CONSTANTS##
@@ -7,7 +9,7 @@ import random
 eVc = 1.7826619216279e-36  # eV/c^2 convert to kilogram
 fm = 1e-15  # femtometre to meter
 qSqrt3 = 1 / sqrt(3)  # just to make it easier
-dt = 1 / 60  # time step
+dt = 1e-5  # time step
 
 
 # Coulombs Constant
@@ -33,6 +35,8 @@ PROTON_RADIUS = 0.84075 * fm
 NEUTRON_RADIUS = 0.8 * fm
 UP_TYPE_QUARK_RADIUS = 1e-2 * PROTON_RADIUS
 DOWN_TYPE_QUARK_RADIUS = 1e-2 * PROTON_RADIUS
+ELECTRON_RADIUS = UP_TYPE_QUARK_RADIUS * 300 #just to make them visible
+
 QUARK_VERTEX = 2 * UP_TYPE_QUARK_RADIUS
 HADRON_VERTEX = 2 * ((PROTON_RADIUS + NEUTRON_RADIUS) / 2)
 
@@ -65,15 +69,15 @@ class DownQuark:
 
 
 class Electron:
-    def __init__(self, position):
+    def __init__(self, position,shell=1):
         self.charge = ELECTRON_CHARGE
         self.mass = ELECTRON_MASS
         self.spin = 1 / 2
         self.pos = position
-        self.shell = 1
+        self.shell = shell
         self.energy = -13.6/(self.shell**2)         #energy is in electron Volts
 
-        self.visual = sphere(pos=self.pos, radius = UP_TYPE_QUARK_RADIUS*300, color = color.yellow, opacity=0.3)
+        self.visual = sphere(pos=self.pos, radius = ELECTRON_RADIUS, color = color.yellow, opacity=0.3)
 
         self.vel = vector(0, 0, 0)
         self.accel = vector(0, 0, 0)
@@ -115,6 +119,8 @@ class Proton:
         return sum(q.charge for q in self.quarks)
 
     def update(self, parent_displacement=vector(0,0,0)):
+        self.vel *= 0.85
+
         self.accel = self.force / self.mass
         self.vel += self.accel * dt
         displacement = self.vel * dt + parent_displacement
@@ -153,6 +159,8 @@ class Neutron:
         return sum(q.charge for q in self.quarks)
 
     def update(self, parent_displacement=vector(0,0,0)):
+        self.vel *= 0.85
+
         self.accel = self.force / self.mass
         self.vel += self.accel * dt
         displacement = self.vel * dt + parent_displacement
@@ -170,14 +178,23 @@ class Atom:
         self.pos = position
         self.radius = 0
 
-        self.neutrons = [Neutron(position=self.pos) for _ in range(atomic_number)]
+        self.neutrons = []
 
-        self.protons = [Proton(position=self.pos) for _ in range(atomic_number)]
+        self.protons = []
+
+        for _ in range(atomic_number):
+            jitter_n = vector(random.uniform(-1, 1), random.uniform(-1, 1), random.uniform(-1, 1)) * fm * 0.1
+            self.neutrons.append(Neutron(position=self.pos + jitter_n))
+            
+            jitter_p = vector(random.uniform(-1, 1), random.uniform(-1, 1), random.uniform(-1, 1)) * fm * 0.1
+            self.protons.append(Proton(position=self.pos + jitter_p))
 
         for p in self.protons:
-            self.radius += p.radius
+            self.radius += p.radius / 3
+
         for n in self.neutrons:
-            self.radius += n.radius
+            self.radius += n.radius / 3
+
 
         offset_1 = vector(HADRON_VERTEX, HADRON_VERTEX, HADRON_VERTEX) * qSqrt3
         offset_2 = vector(HADRON_VERTEX, -HADRON_VERTEX, -HADRON_VERTEX) * qSqrt3
@@ -211,8 +228,7 @@ class Atom:
 
             electron_shell_pos = self.pos + vector(offset_x, offset_y, offset_z)
 
-            electron = Electron(position=electron_shell_pos)
-            electron.shell = n
+            electron = Electron(position=electron_shell_pos,shell=n)
 
             self.electrons += [electron]
 
@@ -221,9 +237,40 @@ class Atom:
         self.force = vector(0, 0, 0)
         self.mass = sum(n.mass for n in self.neutrons) + sum(p.mass for p in self.protons)
 
-        self.visual = sphere(pos=self.pos, radius=self.radius, color=color.white, opacity=0.3)
+        self.visual = sphere(pos=self.pos, radius=self.radius, color=color.white, opacity=0.0)
+    
+    def calculate_nucleon_forces(self):
+        nucleons = self.protons + self.neutrons
+
+        K_CENTER = 1e-27
+        K_REPEL = 1e-39
+
+        for i in range(len(nucleons)):
+            n1 = nucleons[i]
+            r_center = n1.pos - self.pos
+            n1.force += -K_CENTER * r_center
+
+            for j in range(i + 1, len(nucleons)):
+                n2 = nucleons[j]
+                r_vec = n1.pos - n2.pos
+                dist = mag(r_vec)
+
+                min_dist = 2 * PROTON_RADIUS
+
+                if 0 < dist < min_dist:
+
+                    overlap = min_dist - dist
+
+                    f_mag = K_REPEL * (overlap / min_dist)**2
+                    repel_force = norm(r_vec) * f_mag
+
+                    n1.force += repel_force
+                    n2.force -= repel_force
 
     def update(self):
+
+        self.calculate_nucleon_forces()
+
         self.accel = self.force / self.mass
         self.vel += self.accel * dt
         displacement = self.vel * dt
@@ -244,30 +291,31 @@ class Atom:
         
         self.force = vector(0, 0, 0)
 
+##FUNCTIONS##
+
 
 ##Setup##
 
 # Canvas
+
 scene.width = 1000
 scene.height = 1100
-scene.background = color.white
+scene.background = color.black
 
 # Objects
 
-He = Atom(position=vector(0,0,0),atomic_number=2)
-Li = Atom(position=vector(-5,0,0)*fm, atomic_number=3)
 
-objectList = [He,Li]
+he = Atom(position=vector(0,0,0), atomic_number=80)
+objectList = [he]
 
+print([e.energy for e in he.electrons])
+print([e.shell for e in he.electrons])
 
-
-##UPDATES##
-
-#He.vel += vector(1,0,0)*fm
+# Updates
 
 while True:
     rate(60)
     for obj in objectList:
         obj.update()
-    scene.camera.follow(He.visual)
+#    scene.camera.follow(He.visual)
 
