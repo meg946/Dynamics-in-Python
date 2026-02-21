@@ -120,8 +120,6 @@ class Electron:
         self.accel = vector(0, 0, 0)
         self.force = vector(0, 0, 0)
     
-    def 
-
     def update(self, parent_displacement=vector(0,0,0)):
         self.accel = self.force / self.mass
         self.vel += self.accel * dt
@@ -137,9 +135,9 @@ class Proton:
         self.pos = position
         self.radius = PROTON_RADIUS
 
-        offset_1 = vector(QUARK_VERTEX, QUARK_VERTEX, QUARK_VERTEX) * qSqrt3
-        offset_2 = vector(QUARK_VERTEX, -QUARK_VERTEX, -QUARK_VERTEX) * qSqrt3
-        offset_3 = vector(-QUARK_VERTEX, QUARK_VERTEX, -QUARK_VERTEX) * qSqrt3
+        offset_1 = vector(QUARK_VERTEX, QUARK_VERTEX, QUARK_VERTEX) * qSqrt3 * random.randint(-3,3)
+        offset_2 = vector(QUARK_VERTEX, -QUARK_VERTEX, -QUARK_VERTEX) * qSqrt3 * random.randint(-3,3)
+        offset_3 = vector(-QUARK_VERTEX, QUARK_VERTEX, -QUARK_VERTEX) * qSqrt3 * random.randint(-3,3)
 
         self.quarks = [
             UpQuark(position=self.pos + offset_1),
@@ -155,8 +153,6 @@ class Proton:
         self.visual = sphere(pos=self.pos, radius=self.radius, color=color.red, opacity=0.3)
 
     def calculate_QCD(self):
-        for q in self.quarks:
-            q.update()
             
         quarks = self.quarks
 
@@ -210,9 +206,9 @@ class Neutron:
         self.pos = position
         self.radius = PROTON_RADIUS
 
-        offset_1 = vector(QUARK_VERTEX, QUARK_VERTEX, QUARK_VERTEX) * qSqrt3
-        offset_2 = vector(QUARK_VERTEX, -QUARK_VERTEX, -QUARK_VERTEX) * qSqrt3
-        offset_3 = vector(-QUARK_VERTEX, QUARK_VERTEX, -QUARK_VERTEX) * qSqrt3
+        offset_1 = vector(QUARK_VERTEX, QUARK_VERTEX, QUARK_VERTEX) * qSqrt3 * random.randint(-3,3)
+        offset_2 = vector(QUARK_VERTEX, -QUARK_VERTEX, -QUARK_VERTEX) * qSqrt3 * random.randint(-3,3)
+        offset_3 = vector(-QUARK_VERTEX, QUARK_VERTEX, -QUARK_VERTEX) * qSqrt3 * random.randint(-3,3)
 
         self.quarks = [
             UpQuark(position=self.pos + offset_1),
@@ -228,8 +224,6 @@ class Neutron:
         self.visual = sphere(pos=self.pos, radius=self.radius, color=color.white, opacity=0.3)
 
     def calculate_QCD(self):
-        for q in self.quarks:
-            q.update()
             
         quarks = self.quarks
 
@@ -300,7 +294,6 @@ class Atom:
         for n in self.neutrons:
             self.radius += n.radius / 3
 
-
         offset_1 = vector(HADRON_VERTEX, HADRON_VERTEX, HADRON_VERTEX) * qSqrt3
         offset_2 = vector(HADRON_VERTEX, -HADRON_VERTEX, -HADRON_VERTEX) * qSqrt3
         offset_3 = vector(-HADRON_VERTEX, HADRON_VERTEX, -HADRON_VERTEX) * qSqrt3
@@ -340,7 +333,7 @@ class Atom:
         self.force = vector(0, 0, 0)
         self.mass = sum(n.mass for n in self.neutrons) + sum(p.mass for p in self.protons)
 
-        self.visual = sphere(pos=self.pos, radius=self.radius, color=color.white, opacity=0.0)
+        self.visual = sphere(pos=self.pos, radius=self.radius, color=color.white, opacity=0.05)
     
     def calculate_nucleon_forces(self):
         nucleons = self.protons + self.neutrons
@@ -402,10 +395,15 @@ scene.background = color.black
 # Objects
 
 
-he = Atom(position=vector(0,0,0), atomic_number=8)
-objectList = [he]
+O = Atom(position=vector(0,0,0), atomic_number=8)
 
-print(he.charge)
+He = Atom(position=vector(-10,0,0)*fm, atomic_number=2)
+
+objectList = [O, He]
+
+print(O.charge)
+
+print(He.charge)
 
 # Updates
 
