@@ -2,28 +2,25 @@ from vpython import *
 import random
 import numpy as np
 
-
-
 ##CONSTANTS##
+
 # Unit Conversions
 eVc = 1.7826619216279e-36  # eV/c^2 convert to kilogram
 fm = 1e-15  # femtometre to meter
 qSqrt3 = 1 / sqrt(3)  # just to make it easier
-dt = 1e-5  # time step
+dt = 1e-6  # time step
 
 #Strong force (its springs)
 Q_CENTER = 1e-28
 Q_REPEL = 1e-43
-N_CENTER = 1e-27
-N_REPEL = 1e-39
+N_CENTER = 1e-28
+N_REPEL = 1e-40
 
 # Coulombs Constant
 SPEED_OF_LIGHT = 299792458  # Meters per Second
 MAGNETIC_CONSTANT = 1.25663706127e-6  # Newtons per Ampere
 EPSILON_NAUGHT = 1 / (MAGNETIC_CONSTANT * SPEED_OF_LIGHT**2)  # Farad per (1/meter)
-COULOMB_CONSTANT = (
-    1 / (4 * pi) * (EPSILON_NAUGHT**-1)
-)  # Newtons per (meters^2/Coulomb^2)
+COULOMB_CONSTANT = (1 / (4 * pi) * (EPSILON_NAUGHT**-1))  # Newtons per (meters^2/Coulomb^2)
 
 # Elementary Charges
 E = 1.602176634e-19  # Coulombs
@@ -38,11 +35,11 @@ ELECTRON_MASS = 0.51099895069 * eVc
 # Elementary Radius
 PROTON_RADIUS = 0.84075 * fm
 NEUTRON_RADIUS = 0.8 * fm
+R_NAUGHT = 1.2 * fm
 UP_TYPE_QUARK_RADIUS = 1e-2 * PROTON_RADIUS
 DOWN_TYPE_QUARK_RADIUS = 1e-2 * PROTON_RADIUS
 QUARK_AVERAGE_RADIUS = (UP_TYPE_QUARK_RADIUS+DOWN_TYPE_QUARK_RADIUS) / 2
-
-ELECTRON_RADIUS = UP_TYPE_QUARK_RADIUS * 300 #just to make them visible
+ELECTRON_RADIUS = UP_TYPE_QUARK_RADIUS * 100 #just to make them visible
 
 QUARK_VERTEX = 2 * UP_TYPE_QUARK_RADIUS
 HADRON_VERTEX = 2 * ((PROTON_RADIUS + NEUTRON_RADIUS) / 2)
@@ -52,9 +49,7 @@ PROTON_CHARGE = UP_TYPE_QUARK_CHARGE * 2 + DOWN_TYPE_QUARK_CHARGE
 NEUTRON_CHARGE = UP_TYPE_QUARK_CHARGE + DOWN_TYPE_QUARK_CHARGE * 2
 ELECTRON_CHARGE = -E
 
-
 ##CLASSES##
-
 
 # Elementary Classes
 class UpQuark:
@@ -129,6 +124,9 @@ class Electron:
 
         self.force = vector(0, 0, 0)
 
+        if mag(self.vel) > SPEED_OF_LIGHT:
+            self.vel = norm(self.vel) * SPEED_OF_LIGHT
+
 
 class Proton:
     def __init__(self, position):
@@ -200,7 +198,6 @@ class Proton:
         self.force = vector(0, 0, 0)
     
 
-
 class Neutron:
     def __init__(self, position):
         self.pos = position
@@ -271,10 +268,11 @@ class Neutron:
 
 
 class Atom:
-    def __init__(self, position, atomic_number=2):
+    def __init__(self, position, atomic_number=2, atomic_mass=4):
         self.pos = position
         self.radius = 0
         self.charge = 0
+        atom_radius = 0
 
         self.neutrons = []
 
@@ -282,17 +280,14 @@ class Atom:
 
         for _ in range(atomic_number):
             jitter_n = vector(random.uniform(-1, 1), random.uniform(-1, 1), random.uniform(-1, 1)) * fm * 0.1
-            self.neutrons.append(Neutron(position=self.pos + jitter_n))
-            
+            self.neutrons.append(Proton(position=self.pos + jitter_n))
+        
+        for _ in range(atomic_mass - atomic_number):
             jitter_p = vector(random.uniform(-1, 1), random.uniform(-1, 1), random.uniform(-1, 1)) * fm * 0.1
-            self.protons.append(Proton(position=self.pos + jitter_p))
+            self.protons.append(Neutron(position=self.pos + jitter_p))
 
-        for p in self.protons:
-            self.radius += p.radius / 3
-            self.charge += p.get_total_charge()
-
-        for n in self.neutrons:
-            self.radius += n.radius / 3
+        
+        self.radius = R_NAUGHT * atomic_mass**(1/3)            
 
         offset_1 = vector(HADRON_VERTEX, HADRON_VERTEX, HADRON_VERTEX) * qSqrt3
         offset_2 = vector(HADRON_VERTEX, -HADRON_VERTEX, -HADRON_VERTEX) * qSqrt3
@@ -378,38 +373,34 @@ class Atom:
 
         for e in self.electrons:
             e.update(displacement)
-        
+                    
         self.force = vector(0, 0, 0)
 
 ##FUNCTIONS##
 
 
-##Setup##
+
+##SETUP##
 
 # Canvas
 
 scene.width = 1000
 scene.height = 1100
 scene.background = color.black
+scene.autoscale = False
+scene.range = 30 * fm
 
 # Objects
 
+H = Atom(position=vector(0,0,0)*fm, atomic_number=1, atomic_mass=1)
 
-O = Atom(position=vector(0,0,0), atomic_number=8)
-
-He = Atom(position=vector(-10,0,0)*fm, atomic_number=2)
-
-objectList = [O, He]
-
-print(O.charge)
-
-print(He.charge)
+objectList = [H]
 
 # Updates
 
 while True:
     rate(60)
+
     for obj in objectList:
         obj.update()
-#    scene.camera.follow(He.visual)
 
