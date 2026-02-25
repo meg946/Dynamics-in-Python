@@ -1,6 +1,5 @@
 from vpython import *
 import random
-import numpy as np
 
 ##CONSTANTS##
 
@@ -9,6 +8,7 @@ eVc = 1.7826619216279e-36  # eV/c^2 convert to kilogram
 fm = 1e-15  # femtometre to meter
 qSqrt3 = 1 / sqrt(3)  # just to make it easier
 dt = 1e-6  # time step
+ELECTRON_RADIUS_TO_SHELL = 0.0366382092638
 
 #Strong force (its springs)
 Q_CENTER = 1e-28
@@ -40,6 +40,7 @@ UP_TYPE_QUARK_RADIUS = 1e-2 * PROTON_RADIUS
 DOWN_TYPE_QUARK_RADIUS = 1e-2 * PROTON_RADIUS
 QUARK_AVERAGE_RADIUS = (UP_TYPE_QUARK_RADIUS+DOWN_TYPE_QUARK_RADIUS) / 2
 ELECTRON_RADIUS = UP_TYPE_QUARK_RADIUS * 100 #just to make them visible
+ELECTRON_ORBITAL_SIZE = 10 * fm
 
 QUARK_VERTEX = 2 * UP_TYPE_QUARK_RADIUS
 HADRON_VERTEX = 2 * ((PROTON_RADIUS + NEUTRON_RADIUS) / 2)
@@ -48,6 +49,15 @@ HADRON_VERTEX = 2 * ((PROTON_RADIUS + NEUTRON_RADIUS) / 2)
 PROTON_CHARGE = UP_TYPE_QUARK_CHARGE * 2 + DOWN_TYPE_QUARK_CHARGE
 NEUTRON_CHARGE = UP_TYPE_QUARK_CHARGE + DOWN_TYPE_QUARK_CHARGE * 2
 ELECTRON_CHARGE = -E
+
+
+#Quantum Constants
+imaginary = 1j
+H = 3
+H_BAR = H / (2*pi)
+
+
+
 
 ##CLASSES##
 
@@ -101,31 +111,66 @@ class DownQuark:
 
 
 class Electron:
-    def __init__(self, position,shell=1):
+    def __init__(self, position, atom_center, n=1, l=0, m=0):
         self.charge = ELECTRON_CHARGE
         self.mass = ELECTRON_MASS
-        self.spin = 1 / 2
         self.pos = position
-        self.shell = shell
-        self.energy = -13.6/(self.shell**2)         #energy is in electron Volts
+
+        self.x = position.x
+        self.y = position.y
+        self.z = position.z
+        
+        self.n = n
+        self.l = l
+        self.m = m
+        self.energy = -13.6 / (self.n**2)        #energy is in electron Volts
 
         self.visual = sphere(pos=self.pos, radius = ELECTRON_RADIUS, color = color.yellow, opacity=0.3)
 
-        self.vel = vector(0, 0, 0)
-        self.accel = vector(0, 0, 0)
-        self.force = vector(0, 0, 0)
-    
-    def update(self, parent_displacement=vector(0,0,0)):
-        self.accel = self.force / self.mass
-        self.vel += self.accel * dt
-        displacement = self.vel * dt + parent_displacement
-        self.pos += displacement
-        self.visual.pos = self.pos
+        self.visual._trail_radius = ELECTRON_RADIUS * 0.8
 
-        self.force = vector(0, 0, 0)
+        attach_trail(self.visual, type="points", retain=4500,interval=1)        
+        
+    def calculate_psi(self,x,y,z):
+        self.r = sqrt(x**2+y**2+z**2)
+        if self.r == 0:
+            r = 1e-2 * fm
+        
+        self.rho = (self.r) / ELECTRON_ORBITAL_SIZE
 
-        if mag(self.vel) > SPEED_OF_LIGHT:
-            self.vel = norm(self.vel) * SPEED_OF_LIGHT
+        if self.n == 1.0:
+            return exp(-2*self.rho)
+        elif self.n == 2.0:
+            return (2-self.rho)**2*exp(-self.rho)
+        
+        return 0
+
+    def update(self, atom_center):
+        n = self.n
+        
+        max_radius = (self.n**2) * 4 * ELECTRON_ORBITAL_SIZE
+
+        p_max = 1.0
+        if self.n == 2.0:
+            p_max *= 4.0
+        
+        while True:
+            rx = random.uniform(-max_radius,max_radius)
+            ry = random.uniform(-max_radius,max_radius)
+            rz = random.uniform(-max_radius,max_radius)
+
+            p_current = self.calculate_psi(rx,ry,rz)
+            p_threshold = random.uniform(0,p_max)
+
+            if p_current > p_threshold:
+                e_offset = vector(rx,ry,rz)
+
+                self.pos = atom_center + e_offset
+                self.visual.pos = self.pos
+                break
+
+
+        
 
 
 class Proton:
@@ -272,7 +317,6 @@ class Atom:
         self.pos = position
         self.radius = 0
         self.charge = 0
-        atom_radius = 0
 
         self.neutrons = []
 
@@ -309,8 +353,8 @@ class Atom:
                 electronCapacity = 2 * (n**2)
 
             shell_radius = (n**2) * offset_electron_mag
-
-            theta = random.uniform(0,2 * pi)
+            
+            theta = random.uniform(0,2*pi)
             phi = acos(random.uniform(-1,1))
 
             offset_x = shell_radius * sin(phi) * cos(theta)
@@ -319,7 +363,7 @@ class Atom:
 
             electron_shell_pos = self.pos + vector(offset_x, offset_y, offset_z)
 
-            electron = Electron(position=electron_shell_pos,shell=n)
+            electron = Electron(position=electron_shell_pos, atom_center=self.pos,n=n)
 
             self.electrons += [electron]
 
@@ -372,7 +416,7 @@ class Atom:
             n.update(displacement)
 
         for e in self.electrons:
-            e.update(displacement)
+            e.update(self.pos)
                     
         self.force = vector(0, 0, 0)
 
@@ -392,15 +436,19 @@ scene.range = 30 * fm
 
 # Objects
 
-H = Atom(position=vector(0,0,0)*fm, atomic_number=1, atomic_mass=1)
+C = Atom(position=vector(0,0,0)*fm, atomic_number=6, atomic_mass=25)
 
-objectList = [H]
+objectList = [C]
+electron_distances = []
 
 # Updates
+#for e in C.electrons:
+#    electron_distances += [e.r]
 
+electron_distances.sort()
+print(electron_distances)
 while True:
     rate(60)
 
     for obj in objectList:
         obj.update()
-
