@@ -40,7 +40,7 @@ UP_TYPE_QUARK_RADIUS = 1e-2 * PROTON_RADIUS
 DOWN_TYPE_QUARK_RADIUS = 1e-2 * PROTON_RADIUS
 QUARK_AVERAGE_RADIUS = (UP_TYPE_QUARK_RADIUS+DOWN_TYPE_QUARK_RADIUS) / 2
 ELECTRON_RADIUS = UP_TYPE_QUARK_RADIUS * 100 #just to make them visible
-ELECTRON_ORBITAL_SIZE = 10 * fm
+ELECTRON_ORBITAL_SIZE = 100 * fm
 
 QUARK_VERTEX = 2 * UP_TYPE_QUARK_RADIUS
 HADRON_VERTEX = 2 * ((PROTON_RADIUS + NEUTRON_RADIUS) / 2)
@@ -129,7 +129,7 @@ class Electron:
 
         self.visual._trail_radius = ELECTRON_RADIUS * 0.8
 
-        attach_trail(self.visual, type="points", retain=4500,interval=1)        
+        attach_trail(self.visual, type="points", retain=45000,interval=1)        
         
     def calculate_psi(self,x,y,z):
         self.r = sqrt(x**2+y**2+z**2)
@@ -138,16 +138,32 @@ class Electron:
         
         self.rho = (self.r) / ELECTRON_ORBITAL_SIZE
 
-        if self.n == 1.0:
-            return exp(-2*self.rho)
-        elif self.n == 2.0:
-            return (2-self.rho)**2*exp(-self.rho)
-        
-        return 0
 
-    def update(self, atom_center):
-        n = self.n
+        theta = acos(z / self.r) # polar angle
+        phi = atan2(y, x) #azimuthal angle
         
+        radial_prob = 0
+        if self.n == 1.0 and self.l == 0:
+            radial_prob = exp(-2 * self.rho)
+        elif self.n == 2.0 and self.l == 0:
+            radial_prob = (2-self.rho)**2 * exp(-self.rho)
+        elif self.n == 2.0 and self.l == 1:
+            radial_prob = (self.rho**2) * exp(-self.rho)
+
+        angular_prob = 1.0
+        if self.l == 0:
+            angular_prob = 1.0
+        elif self.l == 1:
+            if self.m == 0:
+                angular_prob = cos(theta)**2
+            elif self.m == 1:
+                angular_prob = (sin(theta)**2) * (cos(phi)**2)
+            elif self.m == -1:
+                angular_prob = (sin(theta)**2) * (sin(phi)**2)
+
+        return radial_prob * angular_prob
+
+    def update(self, atom_center):        
         max_radius = (self.n**2) * 4 * ELECTRON_ORBITAL_SIZE
 
         p_max = 1.0
@@ -168,9 +184,6 @@ class Electron:
                 self.pos = atom_center + e_offset
                 self.visual.pos = self.pos
                 break
-
-
-        
 
 
 class Proton:
@@ -340,10 +353,10 @@ class Atom:
         offset_electron_mag = (15 * (1 + self.radius*1e13)**3) * HADRON_VERTEX #shell distance
 
         self.electrons = []
-
+        quantum_shells = self.generate_quantum_numbers()
         #electron shell calculation
         for i in range(atomic_number):          
-            n = 1
+            n, l, m = next(quantum_shells)
             electronCapacity = 2 * (n**2)
             count = i + 1
 
@@ -363,7 +376,7 @@ class Atom:
 
             electron_shell_pos = self.pos + vector(offset_x, offset_y, offset_z)
 
-            electron = Electron(position=electron_shell_pos, atom_center=self.pos,n=n)
+            electron = Electron(position=electron_shell_pos, atom_center=self.pos,n=n, l=l, m=m)
 
             self.electrons += [electron]
 
@@ -399,6 +412,34 @@ class Atom:
                     n1.force += repel_force
                     n2.force -= repel_force
 
+
+    def generate_quantum_numbers(self):
+        subshells = [
+            (1, 0),  # 1s
+            (2, 0),  # 2s
+            (2, 1),  # 2p
+            (3, 0),  # 3s
+            (3, 1),  # 3p
+            (4, 0),  # 4s
+            (3, 2),  # 3d
+            (4, 1),  # 4p
+            (5, 0),  # 5s
+            (4, 2),  # 4d
+            (5, 1),  # 5p
+            (6, 0),  # 6s
+            (4, 3),  # 4f
+            (5, 2),  # 5d
+            (6, 1),  # 6p
+            (7, 0),  # 7s
+            (5, 3),  # 5f
+            (6, 2),  # 6d
+            (7, 1)  # 7p
+            ]
+        for n,l in subshells:
+            for m in range(-l,l + 1):
+                yield (n,l,m)
+                yield (n,l,m)
+
     def update(self):
 
         self.calculate_nucleon_forces()
@@ -422,8 +463,6 @@ class Atom:
 
 ##FUNCTIONS##
 
-
-
 ##SETUP##
 
 # Canvas
@@ -436,7 +475,7 @@ scene.range = 30 * fm
 
 # Objects
 
-C = Atom(position=vector(0,0,0)*fm, atomic_number=6, atomic_mass=25)
+C = Atom(position=vector(0,0,0)*fm, atomic_number=2, atomic_mass=4)
 
 objectList = [C]
 electron_distances = []
